@@ -1,5 +1,10 @@
 # Claude Prompt Helper
 
+![Claude Prompt Helper Screenshot](public/screenshot_1.jpg)
+![Claude Prompt Helper Screenshot](public/screenshot_2.jpg)
+![Claude Prompt Helper Screenshot](public/screenshot_3.jpg)
+![Claude Prompt Helper Screenshot](public/screenshot_4.jpg)
+
 A simple Chrome Extension that adds a customizable prompt button directly into the [Claude.ai](https://claude.ai) interface. Stop switching tabs between your Google Docs and the chat!
 
 ## Features

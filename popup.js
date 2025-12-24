@@ -111,7 +111,7 @@ function loadPrompts() {
         <span title="${p.text}">${p.title}</span>
         <div class="actions">
           <button class="edit-btn" data-index="${index}"></button>
-          <button class="delete-btn" data-index="${index}"></button>
+          <button class="delete-btn" data-index="${index}">&#10006;</button>
         </div>
       `
       list.appendChild(div)
