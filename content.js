@@ -1,47 +1,55 @@
 // Configuration
-const BUTTON_ID = 'claude-prompt-helper-btn'
 const MODAL_ID = 'claude-prompt-helper-modal'
 
 /**
- * Known selectors for Claude's send/submit buttons.
- * 1. "Send message" - Standard chat interface
- * 2. "Submit" - Code/Artifacts interface
+ * Inserts text into the specific input field associated with the clicked button.
  */
-const SUBMIT_SELECTORS = [
-  'button[aria-label="Send message"]',
-  'button[aria-label="Submit"]',
-]
+function insertPrompt(text, targetInput) {
+  if (!targetInput) {
+    console.error('Claude Extension: No target input found for this button.')
+    alert('Error: Could not find the chat input for this specific panel.')
+    return
+  }
 
-/**
- * Inserts text into the Claude input field and triggers necessary events.
- */
-function insertPrompt(text) {
-  // Try to find the input field (contenteditable div)
-  const input = document.querySelector('div[contenteditable="true"]')
-  if (!input) return
+  targetInput.focus()
 
-  input.focus()
+  // Handle Textarea (Used in /code view)
+  if (targetInput.tagName === 'TEXTAREA') {
+    const originalValue = targetInput.value
+    targetInput.value = text
 
-  // Optional: clear existing text
-  input.innerHTML = ''
+    // Resize textarea height
+    targetInput.style.height = 'auto'
+    targetInput.style.height = targetInput.scrollHeight + 'px'
 
-  // Insert text as a text node
-  input.appendChild(document.createTextNode(text))
+    targetInput.dispatchEvent(new Event('input', { bubbles: true }))
+    targetInput.dispatchEvent(new Event('change', { bubbles: true }))
+  }
+  // Handle ContentEditable (Standard Chat & /new page)
+  else {
+    // Clear existing content (like the <p><br></p> placeholder)
+    targetInput.innerHTML = ''
 
-  // Dispatch InputEvent to notify Claude's React app
-  input.dispatchEvent(
-    new InputEvent('input', {
-      bubbles: true,
-      inputType: 'insertText',
-      data: text,
-    })
-  )
+    // Create a paragraph for the text (Claude likes <p> tags in contenteditable)
+    const p = document.createElement('p')
+    p.textContent = text
+    targetInput.appendChild(p)
+
+    // Trigger input event
+    targetInput.dispatchEvent(
+      new InputEvent('input', {
+        bubbles: true,
+        inputType: 'insertText',
+        data: text,
+      })
+    )
+  }
 }
 
 /**
- * Creates and appends the modal with prompt buttons.
+ * Creates the modal.
  */
-function openModal(prompts) {
+function openModal(prompts, targetInput) {
   if (document.getElementById(MODAL_ID)) return
 
   const modal = document.createElement('div')
@@ -64,8 +72,7 @@ function openModal(prompts) {
 
   if (!prompts || prompts.length === 0) {
     const emptyMsg = document.createElement('div')
-    emptyMsg.innerText =
-      'No prompts saved yet. Click the extension icon to add some.'
+    emptyMsg.innerText = 'No prompts saved. Add via extension icon.'
     emptyMsg.style.color = '#666'
     emptyMsg.style.fontSize = '13px'
     emptyMsg.style.textAlign = 'center'
@@ -75,8 +82,9 @@ function openModal(prompts) {
       const btn = document.createElement('button')
       btn.textContent = p.title
       btn.title = p.text
+      btn.type = 'button'
       btn.onclick = () => {
-        insertPrompt(p.text)
+        insertPrompt(p.text, targetInput)
         modal.remove()
       }
       box.appendChild(btn)
@@ -84,7 +92,6 @@ function openModal(prompts) {
   }
 
   backdrop.onclick = () => modal.remove()
-
   modal.appendChild(backdrop)
   modal.appendChild(box)
   document.body.appendChild(modal)
@@ -97,40 +104,108 @@ function loadPrompts(callback) {
 }
 
 /**
- * Injects the "Prompts" button next to the Send button.
+ * SMART SEARCH for the Input Field.
+ * Updated to support <fieldset> and data-testid used in /new layout
+ */
+function findRelatedInput(sendBtn) {
+  // 1. Look for the closest container up the tree
+  // Added 'fieldset' for /new page support
+  const container =
+    sendBtn.closest('fieldset') ||
+    sendBtn.closest('form') ||
+    sendBtn.closest('.group')
+
+  if (!container) return null
+
+  // 2. Search for the best input candidate inside this container
+  // Priority:
+  // A. [data-testid="chat-input"] (Specific for /new page)
+  // B. textarea (Code view)
+  // C. contenteditable (Fallback)
+  return container.querySelector(
+    '[data-testid="chat-input"], textarea, div[contenteditable="true"]'
+  )
+}
+
+/**
+ * Injects the "Prompts" button next to a specific Send button.
  */
 function injectButton(sendBtn) {
-  // Check if our button already exists ANYWHERE in the document
-  // If it exists but is not next to the current sendBtn (e.g. page navigation),
-  // we might need to move it, but usually, the old one is destroyed by React.
-  if (document.getElementById(BUTTON_ID)) return
+  if (sendBtn.parentElement.querySelector('.claude-prompt-helper-btn-instance'))
+    return
 
   const btn = document.createElement('button')
-  btn.id = BUTTON_ID
+  btn.className = 'claude-prompt-helper-btn-instance'
   btn.textContent = 'Prompts'
+  btn.type = 'button'
 
-  btn.onclick = () => loadPrompts(openModal)
+  // Inline styles for consistency
+  Object.assign(btn.style, {
+    marginRight: '8px',
+    padding: '0 12px',
+    height: '32px',
+    background: 'transparent',
+    border: '1px solid #4b4b4b',
+    borderRadius: '8px',
+    color: '#e5e5e5',
+    fontFamily: 'inherit',
+    fontSize: '13px',
+    fontWeight: '500',
+    cursor: 'pointer',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  })
 
-  // Prepend adds it to the left of the Send button container
+  btn.onmouseover = () => {
+    btn.style.background = '#2a2a2a'
+    btn.style.borderColor = '#666'
+  }
+  btn.onmouseout = () => {
+    btn.style.background = 'transparent'
+    btn.style.borderColor = '#4b4b4b'
+  }
+
+  btn.onclick = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+
+    // Find input relative to THIS button instance
+    const targetInput = findRelatedInput(sendBtn)
+
+    if (targetInput) {
+      loadPrompts((prompts) => openModal(prompts, targetInput))
+    } else {
+      console.error(
+        'Claude Extension: Could not find input. HTML Structure changed?'
+      )
+      // Fallback: try global search if relative search failed (last resort)
+      const fallbackInput = document.querySelector(
+        'div[contenteditable="true"], textarea'
+      )
+      if (fallbackInput) {
+        console.log('Claude Extension: Using fallback global input')
+        loadPrompts((prompts) => openModal(prompts, fallbackInput))
+      } else {
+        alert('Error: Could not find chat input.')
+      }
+    }
+  }
+
   if (sendBtn.parentElement) {
-    // Style check: usually flex containers work well with prepend
     sendBtn.parentElement.prepend(btn)
   }
 }
 
 /**
- * Robust Observer:
- * Monitors DOM for ANY of the valid submit buttons.
+ * Observer that finds ALL submit buttons
  */
 const observer = new MutationObserver(() => {
-  // Convert array of selectors to a single comma-separated string
-  const selectorString = SUBMIT_SELECTORS.join(',')
-  const sendBtn = document.querySelector(selectorString)
-
-  if (sendBtn) {
-    injectButton(sendBtn)
-  }
+  const buttons = document.querySelectorAll(
+    'button[aria-label="Submit"], button[aria-label="Send message"]'
+  )
+  buttons.forEach(injectButton)
 })
 
-// Start observing
 observer.observe(document.body, { childList: true, subtree: true })
