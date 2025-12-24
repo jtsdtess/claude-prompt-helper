@@ -1,0 +1,23 @@
+{
+  "manifest_version": 3,
+  "name": "Claude Prompt Helper",
+  "version": "1.1",
+  "description": "Quick prompt insertion for Claude.ai",
+  "permissions": ["storage"],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "128": "icons/icon128.png"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://claude.ai/*"],
+      "js": ["content.js"],
+      "css": ["styles.css"]
+    }
+  ]
+}
