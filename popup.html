@@ -3,6 +3,7 @@
 
 <head>
   <meta charset="utf-8">
+  <link rel="stylesheet" href="styles.css">
   <style>
     /* Dark Theme Reset */
     body {
@@ -180,8 +181,17 @@
   </div>
 
   <details>
-    <summary>Advanced Settings (JSON Import/Export)</summary>
-    <textarea id="json-io" class="json-area" placeholder="Paste JSON here..."></textarea>
+    <summary>Sync & Settings</summary>
+
+    <div style="margin-bottom: 15px; border-bottom: 1px solid #333; padding-bottom: 15px; margin-top: 10px;">
+      <label style="font-size: 11px; color: #888; display: block; margin-bottom: 5px;">Google Sheet CSV Link:</label>
+      <input type="text" id="sheet-url" placeholder="https://docs.google.com/...output=csv">
+      <button id="btn-sync" class="sec-btn" style="background: #2563eb; color: white; margin-top: 5px;">🔄 Sync from Google Sheets</button>
+      <div id="sync-status" style="font-size: 11px; color: #666; margin-top: 5px; text-align: center;"></div>
+    </div>
+
+    <div style="font-size: 11px; color: #666; margin-bottom: 5px;">Manual JSON Backup:</div>
+    <textarea id="json-io" class="json-area" placeholder="JSON data..."></textarea>
     <div class="row">
       <button id="btn-export" class="sec-btn">Export</button>
       <button id="btn-import" class="sec-btn">Import</button>

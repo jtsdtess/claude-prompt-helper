@@ -1,19 +1,36 @@
 let editingIndex = -1 // -1 означает режим добавления нового
 
 document.addEventListener('DOMContentLoaded', () => {
+  // Проверка: мы точно в расширении?
+  if (typeof chrome === 'undefined' || !chrome.storage) {
+    document.body.innerHTML =
+      '<div style="color:red; padding:20px;">Error: Open this via the Extension Icon, not as a file!</div>'
+    return
+  }
+
   loadPrompts()
   loadSettings()
 
-  document.getElementById('save').addEventListener('click', saveOrUpdatePrompt)
+  // Основная кнопка
+  const saveBtn = document.getElementById('save')
+  if (saveBtn) saveBtn.addEventListener('click', saveOrUpdatePrompt)
 
-  // Кнопки импорта/экспорта/синка
-  document.getElementById('btn-export').addEventListener('click', exportPrompts)
-  document.getElementById('btn-import').addEventListener('click', importPrompts)
-  document.getElementById('btn-sync').addEventListener('click', syncFromGoogle)
+  // --- Кнопки импорта/экспорта/синка (С БЕЗОПАСНОЙ ПРОВЕРКОЙ) ---
+  const btnExport = document.getElementById('btn-export')
+  if (btnExport) btnExport.addEventListener('click', exportPrompts)
 
-  document.getElementById('sheet-url').addEventListener('change', (e) => {
-    chrome.storage.local.set({ sheetUrl: e.target.value.trim() })
-  })
+  const btnImport = document.getElementById('btn-import')
+  if (btnImport) btnImport.addEventListener('click', importPrompts)
+
+  const btnSync = document.getElementById('btn-sync')
+  if (btnSync) btnSync.addEventListener('click', syncFromGoogle)
+
+  const sheetInput = document.getElementById('sheet-url')
+  if (sheetInput) {
+    sheetInput.addEventListener('change', (e) => {
+      chrome.storage.local.set({ sheetUrl: e.target.value.trim() })
+    })
+  }
 })
 
 // --- ОСНОВНАЯ ЛОГИКА (SAVE / UPDATE) ---
@@ -39,7 +56,7 @@ function saveOrUpdatePrompt() {
     } else {
       // РЕЖИМ РЕДАКТИРОВАНИЯ
       prompts[editingIndex] = { title, text }
-      editingIndex = -1 // Сброс режима
+      editingIndex = -1
       resetButtonState()
     }
 
@@ -51,7 +68,6 @@ function saveOrUpdatePrompt() {
   })
 }
 
-// Загрузка промпта в поля для редактирования
 function startEdit(index) {
   chrome.storage.local.get({ prompts: [] }, (data) => {
     const prompt = data.prompts[index]
@@ -59,14 +75,11 @@ function startEdit(index) {
       document.getElementById('title').value = prompt.title
       document.getElementById('text').value = prompt.text
 
-      editingIndex = parseInt(index) // Запоминаем, кого редактируем
+      editingIndex = parseInt(index)
 
-      // Меняем вид кнопки
       const saveBtn = document.getElementById('save')
       saveBtn.innerText = 'Update Prompt'
-      saveBtn.style.background = '#6366f1' // Фиолетовый цвет для Update
 
-      // Скролл наверх к полям
       window.scrollTo({ top: 0, behavior: 'smooth' })
     }
   })
@@ -74,9 +87,7 @@ function startEdit(index) {
 
 function resetButtonState() {
   const saveBtn = document.getElementById('save')
-  saveBtn.innerText = 'Add Prompt'
-  saveBtn.style.background = '' // Возвращаем стандартный цвет (из CSS)
-  saveBtn.style.color = ''
+  saveBtn.innerText = 'Add Prompt' // Только текст, цвет пусть берет из CSS
 }
 
 // --- ОТРИСОВКА СПИСКА ---
@@ -95,30 +106,27 @@ function loadPrompts() {
     data.prompts.forEach((p, index) => {
       const div = document.createElement('div')
       div.className = 'item'
+      // Используем SVG иконки из CSS (классы edit-btn и delete-btn)
       div.innerHTML = `
         <span title="${p.text}">${p.title}</span>
         <div class="actions">
-          <button class="edit-btn" data-index="${index}">✎</button>
-          <button class="delete-btn" data-index="${index}">✕</button>
+          <button class="edit-btn" data-index="${index}"></button>
+          <button class="delete-btn" data-index="${index}"></button>
         </div>
       `
       list.appendChild(div)
     })
 
-    // Вешаем обработчики на Edit
     document.querySelectorAll('.edit-btn').forEach((btn) => {
-      btn.addEventListener('click', (e) => {
-        // e.target может быть самой кнопкой
-        const index = e.target.getAttribute('data-index')
-        startEdit(index)
-      })
+      btn.addEventListener('click', (e) =>
+        startEdit(e.target.getAttribute('data-index'))
+      )
     })
 
-    // Вешаем обработчики на Delete
     document.querySelectorAll('.delete-btn').forEach((btn) => {
-      btn.addEventListener('click', (e) => {
+      btn.addEventListener('click', (e) =>
         deletePrompt(e.target.getAttribute('data-index'))
-      })
+      )
     })
   })
 }
@@ -129,7 +137,6 @@ function deletePrompt(index) {
       const prompts = data.prompts
       prompts.splice(index, 1)
 
-      // Если мы удалили тот, который сейчас редактировали — сбрасываем форму
       if (editingIndex == index) {
         editingIndex = -1
         document.getElementById('title').value = ''
@@ -142,12 +149,12 @@ function deletePrompt(index) {
   }
 }
 
-// --- ОСТАЛЬНОЕ БЕЗ ИЗМЕНЕНИЙ ---
+// --- SYNC & SETTINGS ---
 
 function loadSettings() {
   chrome.storage.local.get({ sheetUrl: '' }, (data) => {
-    if (data.sheetUrl)
-      document.getElementById('sheet-url').value = data.sheetUrl
+    const input = document.getElementById('sheet-url')
+    if (data.sheetUrl && input) input.value = data.sheetUrl
   })
 }
 
@@ -208,7 +215,6 @@ function syncFromGoogle() {
 }
 
 function parseCSV(text) {
-  // Тот же парсер, что и был (сокращаю для экономии места, он у тебя есть)
   const lines = []
   let currentLine = []
   let currentCell = ''
@@ -249,7 +255,9 @@ function parseCSV(text) {
   }
   const prompts = []
   const startIndex =
-    lines[0] && lines[0][0].toLowerCase().includes('title') ? 1 : 0
+    lines[0] && lines[0][0] && lines[0][0].toLowerCase().includes('title')
+      ? 1
+      : 0
   for (let i = startIndex; i < lines.length; i++) {
     const row = lines[i]
     if (row.length >= 2 && row[0] && row[1])
