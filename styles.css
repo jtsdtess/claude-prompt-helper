@@ -77,3 +77,32 @@
   background: #3a3a3a;
   border-color: #555;
 }
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.edit-btn {
+  background: transparent;
+  color: #888;
+  border: none;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 4px;
+  font-size: 14px;
+  line-height: 1;
+  transition: all 0.2s;
+}
+
+.edit-btn:hover {
+  background: #333;
+  color: #6366f1;
+}
+.item {
+  /* ... старые стили ... */
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
